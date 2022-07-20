@@ -1,10 +1,13 @@
 package com.study.querydsl;
 
 import com.querydsl.core.QueryResults;
+import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.study.querydsl.entity.Member;
 import com.study.querydsl.entity.QMember;
+import com.study.querydsl.entity.QTeam;
 import com.study.querydsl.entity.Team;
+import org.assertj.core.api.Assert;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +20,7 @@ import javax.persistence.EntityManager;
 import java.util.List;
 
 import static com.study.querydsl.entity.QMember.*;
+import static com.study.querydsl.entity.QTeam.*;
 
 @SpringBootTest
 @Transactional
@@ -186,5 +190,136 @@ public class QuerydslBasicTest {
         Assertions.assertThat(result.getLimit()).isEqualTo(2);
         Assertions.assertThat(result.getOffset()).isEqualTo(1);
         Assertions.assertThat(result.getResults().size()).isEqualTo(2);
+    }
+
+    @Test
+    public void aggregation(){
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+
+        List<Tuple> result = queryFactory
+                .select(
+                        member.count(),
+                        member.age.sum(),
+                        member.age.avg(),
+                        member.age.max(),
+                        member.age.min()
+                )
+                .from(member)
+                .fetch();
+        //tuple이란 여러개의 타입이 있을 때 막 꺼내올 수 있는 것.
+
+        Tuple tuple = result.get(0);
+        Assertions.assertThat(tuple.get(member.count())).isEqualTo(4);
+        Assertions.assertThat(tuple.get(member.age.sum())).isEqualTo(100);
+        Assertions.assertThat(tuple.get(member.age.avg())).isEqualTo(25);
+        Assertions.assertThat(tuple.get(member.age.max())).isEqualTo(40);
+        Assertions.assertThat(tuple.get(member.age.min())).isEqualTo(10);
+    }
+
+    //팀의 이름과 각 팀의 평균 연령을 구해라.
+    @Test
+    public void group() throws Exception{
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+
+        List<Tuple> result = queryFactory
+                .select(
+                        team.name, member.age.avg()
+                )
+                .from(member)
+                .join(member.team, team)
+                .groupBy(team.name)
+                .fetch();
+
+        Tuple teamA = result.get(0);
+        Tuple teamB = result.get(1);
+
+        Assertions.assertThat(teamA.get(team.name)).isEqualTo("teamA");
+        Assertions.assertThat(teamA.get(member.age.avg())).isEqualTo(15);
+
+        Assertions.assertThat(teamB.get(team.name)).isEqualTo("teamB");
+        Assertions.assertThat(teamB.get(member.age.avg())).isEqualTo(35);
+    }
+
+    /*
+    * TeamA에 소속된 모든 회원
+    * */
+    @Test
+    public void join() throws Exception {
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .join(member.team, team)        //join(별칭 대상, 별칭으로 사용할 Q타입)    //select m from Member m join m.team t
+                .where(team.name.eq("teamA"))
+                .fetch();
+
+        Assertions.assertThat(result)
+                .extracting("username")
+                .containsExactly("member1", "member2");
+    }
+
+    /*
+    * 세타 조인
+    * 회원의 이름이 팀 이름과 같은 회원을 조회
+    * */
+    @Test
+    public void theta_join(){
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+
+        List<Member> result = queryFactory
+                .select(member)
+                .from(member, team)
+                .where(member.username.eq(team.name))
+                .fetch();
+
+        Assertions.assertThat(result)
+                .extracting("username")
+                .containsExactly("teamA", "teamB");
+    }
+
+    /*
+    * 회원과 팀을 조인하면서, 팀 이름이 teamA인 팀만 조인, 회원은 모두 조회
+    * JPQL : select m, t from Member m left join m.team t on t.name = 'teamA'
+    * */
+    @Test
+    public void join_on_filtering(){
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                .on(team.name.eq("teamA"))
+                .fetch();
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
+
+
+    /*
+     * 연관관계가 없는 엔티티 외부 조인
+     * 회원의 이름이 팀 이름과 같은 대상을 외부 조인
+     * */
+    @Test
+    public void join_on_no_relation(){
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(team)
+                .on(member.username.eq(team.name))
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("Tuple = " + tuple);
+        }
     }
 }
