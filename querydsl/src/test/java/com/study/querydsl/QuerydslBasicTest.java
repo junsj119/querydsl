@@ -645,8 +645,6 @@ public class QuerydslBasicTest {
                 .where(allEq(usernameCond, ageCond))
                 .fetch();
     }
-
-
     private BooleanExpression usernameEq(String usernameCond) {
         if(usernameCond != null){
             return member.username.eq(usernameCond);
@@ -661,5 +659,68 @@ public class QuerydslBasicTest {
 
     private Predicate allEq(String usernameCond, Integer ageCond){
         return usernameEq(usernameCond).and(ageEq(ageCond));
+    }
+
+
+    @Test
+    public void bulkUpdate(){
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+
+        queryFactory
+                .update(member)
+                .set(member.username, "비회원")
+                .where(member.age.lt(28))
+                .execute();     //update문을 사용할 때 사용
+
+        em.flush();
+        em.clear();
+
+        List<Member>result = queryFactory
+                .selectFrom(member)
+                .fetch();
+    }
+
+    @Test
+    public void bulkAdd(){
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+
+        long count = queryFactory
+                .update(member)
+                .set(member.age, member.age.add(1))
+                .execute();
+    }
+
+    @Test
+    public void bulkDelete(){
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+        queryFactory
+                .delete(member)
+                .where(member.age.gt(18))
+                .execute();
+    }
+
+    //member -> M 으로 바꿔주는 함수
+    @Test
+    public void sqlFunction(){
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+
+        String result = queryFactory
+                .select(Expressions.stringTemplate("function('replace', {0}, {1}, {2})",
+                                                                        member.username, "member", "M"))
+                .from(member)
+                .fetchFirst();
+    }
+
+    //소문자로 바꾸주는 함수
+    @Test
+    public void sqlFunction2(){
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+        queryFactory
+                .select(member.username)
+                .from(member)
+//                .where(member.username.eq(
+//                        Expressions.stringTemplate("function('lower', {0})", member.username)))
+                .where(member.username.eq(member.username.lower()))
+                        .fetch();
     }
 }
