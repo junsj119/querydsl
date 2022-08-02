@@ -11,13 +11,12 @@ import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.study.querydsl.dto.MemberDto;
-import com.study.querydsl.dto.QMemberDto;
-import com.study.querydsl.dto.UserDto;
+import com.study.querydsl.dto.*;
 import com.study.querydsl.entity.Member;
 import com.study.querydsl.entity.QMember;
 import com.study.querydsl.entity.QTeam;
 import com.study.querydsl.entity.Team;
+import com.study.querydsl.repository.MemberJpaRepository;
 import org.assertj.core.api.Assert;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +37,6 @@ import static com.study.querydsl.entity.QTeam.*;
 @SpringBootTest
 @Transactional
 public class QuerydslBasicTest {
-
     @Autowired
     EntityManager em;
 
@@ -723,4 +721,6 @@ public class QuerydslBasicTest {
                 .where(member.username.eq(member.username.lower()))
                         .fetch();
     }
+
+
 }
